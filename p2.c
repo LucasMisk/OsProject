@@ -3,9 +3,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include <sys/types.h>
 #include <time.h>
 #include <string.h>
+
 
 #define MAX_OPTIONS 10
 #define BUFFER_SIZE 1024
@@ -13,6 +15,7 @@
 void print_reg_file_info(char* filename);
 void print_sym_link_info(char* filename);
 void print_access_rights(mode_t mode);
+void print_dir_info(char* dirname);
 
 int main(int argc, char* argv[]) {
     int i;
@@ -36,6 +39,7 @@ int main(int argc, char* argv[]) {
                 break;
             case S_IFDIR:
                 printf("%s: directory\n", filename);
+                print_dir_info(filename);
                 break;
             default:
                 printf("%s: unknown file type\n", filename);
@@ -167,6 +171,77 @@ void print_sym_link_info(char* filename) {
     }
     
 }
+
+void print_dir_info(char* dirname) 
+{
+    DIR* dir;
+    struct dirent* entry;
+    struct stat st;
+    char filename[BUFFER_SIZE];
+    int total_size = 0;
+    int total_c_files = 0;
+    char options[MAX_OPTIONS];
+    int ok=1;
+    if ((dir = opendir(dirname)) == NULL) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        sprintf(filename, "%s/%s", dirname, entry->d_name);
+        if (lstat(filename, &st) == -1) {
+            perror("lstat");
+            continue;
+        }
+        if (S_ISREG(st.st_mode)) {
+            if (strstr(entry->d_name, ".c") != NULL) {
+                total_c_files++;
+            }
+            total_size += st.st_size;
+        }
+    }
+    printf("Options: name(-n), size(-d), access rights(-a), number of C files(-c): ");
+    scanf("%s", options);
+    for(int i=0;i<strlen(options); i++)
+    {
+        if(strchr("- ndca",options[i])==NULL)
+            ok=0;
+    }
+    if(ok==0)
+    {
+        printf("Invalid option\n");
+    }
+    if (options[0]=='-' && ok==1)
+    {
+        for(int i=0;i<strlen(options); i++)
+        {
+            switch(options[i])
+            {
+                case 'n':
+                    printf("%s: directory\n", dirname);
+                    break;
+                case 'd':
+                    printf("Total size: %d bytes\n", total_size);
+                    break;
+                case 'c':
+                    printf("Total .c files: %d\n", total_c_files);
+                    break;
+                case 'a':
+                    printf("Access rights: \n");
+                    print_access_rights(st.st_mode);
+                    break;
+                case '-':
+                    break;
+                case ' ':
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    closedir(dir);
+}
+
 
 void print_access_rights(mode_t mode) {
     printf("User: Read - %s Write - %s Exec - %s \n",
