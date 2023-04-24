@@ -19,6 +19,8 @@ void print_dir_info(char* dirname);
 
 int main(int argc, char* argv[]) {
     int i;
+    FILE *fp;
+    char out[256];
     for (i = 1; i < argc; i++) {
         char* filename = argv[i];
         struct stat st;
@@ -31,15 +33,84 @@ int main(int argc, char* argv[]) {
         switch (st.st_mode & S_IFMT) {
             case S_IFREG:
                 printf("%s: regular file\n", filename);
-                print_reg_file_info(filename);
+                //we fork the process to create a child process
+                pid_t pidreg = fork();
+                if (pidreg == 0)
+                {
+                    //code executed by the child process
+                    print_reg_file_info(filename);
+                    if(filename[strlen(filename)-1]=='c' && filename[strlen(filename)-2]=='.')
+                    {
+                        //we create another child for the script
+                        pid_t pidc = fork();
+                        if (pidc == 0)
+                        {
+                            //code executed by the child process
+                            // create the bash command to run (/bin/bach script.sh filename.c)
+                            char string[30]="/bin/bash";
+                            char scriptname[10]="script.sh";
+                            strcat(string, " ");
+                            strcat(string, scriptname);
+                            strcat(string, " ");
+                            strcat(string, filename);
+                            // execute the script and redirect output to a pipe
+                            fp = popen(string, "r");
+                            if (fp == NULL) {
+                                perror("popen failed");
+                                exit(EXIT_FAILURE);
+                            }
+
+                            // read output from the pipe
+                            fgets(out, sizeof(out), fp);
+                            printf("%s", out);
+                            fgets(out, sizeof(out), fp);
+                            printf("%s", out);
+                        } 
+                        else
+                        {
+                            //code executed by the parent of the second child process
+                            // we wait for the pidc to end with waitpid
+                            pid_t w1=waitpid(pidc, 0);
+
+                            // we exit to finish the processes
+                            exit(EXIT_SUCCESS);
+                        }
+                    }
+                }
+                else
+                {
+                    //code executed by the parent
+                    // we wait for the pidred to end with waitpid 
+                    pid_t wreg = waitpid(pidreg, 0);
+                    // we exit to finish the processes
+                    exit(EXIT_SUCCESS);
+                }
                 break;
             case S_IFLNK:
                 printf("%s: symbolic link\n", filename);
-                print_sym_link_info(filename);
+                pid_t pidlink = fork();
+                if (pidlink == 0)
+                {
+                    print_sym_link_info(filename);
+                }
+                else
+                {
+                    pid_t wlink = waitpid(pidlink, 0);
+                    exit(EXIT_SUCCESS);
+                }
                 break;
             case S_IFDIR:
                 printf("%s: directory\n", filename);
-                print_dir_info(filename);
+                pid_t piddir = fork();
+                if (piddir == 0)
+                {
+                    print_dir_info(filename);
+                }
+                else
+                {
+                    pid_t wdir = waitpid(piddir, 0);
+                    exit(EXIT_SUCCESS);
+                }
                 break;
             default:
                 printf("%s: unknown file type\n", filename);

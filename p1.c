@@ -10,9 +10,9 @@
 
 int main(int argc, char *argv[])
 {
-    char *filename=argv[1];
-    struct stat buf;
-    stat(filename, &buf);
-    printf("%s\n", filename);
-    printf("%ld\n", buf.st_size);
+    char string[10]="ana";
+    printf("%d", strlen(string));
+    ceva 
+    ceva 
+    ceva
 }
