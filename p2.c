@@ -20,7 +20,8 @@ void print_dir_info(char *dirname);
 int main(int argc, char *argv[])
 {
     int i;
-    FILE *fp = fopen("grades.txt", "w");
+    int fp = open("grades.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR);
+    int fl = open("childlog.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR);
     int statusreg1, statusreg2, statuslink1, statuslink2, statusdir1, statusdir2;
     for (i = 1; i < argc; i++)
     {
@@ -34,6 +35,8 @@ int main(int argc, char *argv[])
         switch (st.st_mode & S_IFMT)
         {
         case S_IFREG:
+        {
+            printf("\n%s: reg file\n", filename);
             int pipefd[2];
             if (pipe(pipefd) == -1)
             {
@@ -67,46 +70,55 @@ int main(int argc, char *argv[])
                     exit(EXIT_FAILURE);
                 }
             }
-            close(pipefd[1]);
-            char buffer[1000];
-            int bytes_read = read(pipefd[0], buffer, 1000);
-            if (bytes_read == -1)
-            {
-                perror("read");
-                exit(EXIT_FAILURE);
-            }
-            close(pipefd[0]);
-            buffer[bytes_read] = '\0';
             //   we wait for the pidc to end with waitpid
             pid_t wreg1 = waitpid(pidreg1, &statusreg1, 0);
             if (WIFEXITED(statusreg1))
             {
-                printf("Child with pid %d, exited with status=%d\n", wreg1, WEXITSTATUS(statusreg1));
+                char writea[100];
+                sprintf(writea, "Child with pid %d, exited with status=%d\n", wreg1, WEXITSTATUS(statusreg1));
+                write(fl, writea, strlen(writea));
             }
             pid_t wreg2 = waitpid(pidreg2, &statusreg2, 0);
             if (WIFEXITED(statusreg2))
             {
-                printf("Child with pid %d, exited with status=%d\n", wreg2, WEXITSTATUS(statusreg2));
+                char writea[100];
+                sprintf(writea, "Child with pid %d, exited with status=%d\n", wreg2, WEXITSTATUS(statusreg2));
+                write(fl, writea, strlen(writea));
+                close(pipefd[1]);
+                char buffer[1000];
+                int bytes_read = read(pipefd[0], buffer, 1000);
+                if (bytes_read == -1)
+                {
+                    perror("read");
+                    exit(EXIT_FAILURE);
+                }
+                close(pipefd[0]);
+                buffer[bytes_read] = '\0';
+                int err = atoi(buffer);
+                int wrr = err % 10;
+                err = err / 10;
+                int grade;
+                if (err == 0 && wrr == 0)
+                    grade = 10;
+                else if (err == 0 && wrr > 10)
+                    grade = 2;
+                else if (err == 0 && wrr < 10)
+                    grade = 2 + 8 * (10 - wrr) / 10;
+                else if (err > 0)
+                    grade = 1;
+                // printf("%d errors\n", err);
+                // printf("%d warnings\n", wrr);
+                char gradeString[100];
+                sprintf(gradeString, "Grade for file %s is: %d\n", filename, grade);
+                strcat(gradeString, "\0");
+                write(fp, gradeString, strlen(gradeString));
+                // we exit to finish the processes
             }
-            int err = atoi(buffer);
-            int wrr = err % 10;
-            err = err / 10;
-            int grade;
-            if (err == 0 && wrr == 0)
-                grade = 10;
-            else if (err == 0 && wrr > 10)
-                grade = 2;
-            else if (err == 0 && wrr < 10)
-                grade = 2 + 8 * (10 - wrr) / 10;
-            else if (err > 0)
-                grade = 1;
-            printf("%d errors\n", err);
-            printf("%d warnings\n", wrr);
-            fprintf(fp, "grade is %d\n", grade);
-            // we exit to finish the processes
+
             break;
+        }
         case S_IFLNK:
-            printf("%s: symbolic link\n", filename);
+            printf("\n%s: symbolic link\n", filename);
             pid_t pidlink1 = fork();
             if (pidlink1 == 0)
             {
@@ -116,24 +128,26 @@ int main(int argc, char *argv[])
             pid_t pidlink2 = fork();
             if (pidlink2 == 0)
             {
-                char command[50] = "chmod u=rwx,g=rw,o= ";
-                strcat(command, filename);
-                system(command);
+                execlp("chmod", "chmod", "760", filename, NULL);
                 exit(EXIT_SUCCESS);
             }
             pid_t wlink1 = waitpid(pidlink1, &statuslink1, 0);
             if (WIFEXITED(statuslink1))
             {
-                printf("Child with pid %d, exited with status=%d\n", wlink1, WEXITSTATUS(statuslink1));
+                char writea[100];
+                sprintf(writea, "Child with pid %d, exited with status=%d\n", wlink1, WEXITSTATUS(statuslink1));
+                write(fl, writea, strlen(writea));
             }
             pid_t wlink2 = waitpid(pidlink2, &statuslink2, 0);
             if (WIFEXITED(statuslink1))
             {
-                printf("Child with pid %d, exited with status=%d\n", wlink2, WEXITSTATUS(statuslink2));
+                char writea[100];
+                sprintf(writea, "Child with pid %d, exited with status=%d\n", wlink2, WEXITSTATUS(statuslink2));
+                write(fl, writea, strlen(writea));
             }
             break;
         case S_IFDIR:
-            printf("%s: directory\n", filename);
+            printf("\n%s: directory\n", filename);
             pid_t piddir1 = fork();
             if (piddir1 == 0)
             {
@@ -155,12 +169,16 @@ int main(int argc, char *argv[])
             pid_t wdir1 = waitpid(piddir1, &statusdir1, 0);
             if (WIFEXITED(statusdir1))
             {
-                printf("Child with pid %d, exited with status=%d\n", wdir1, WEXITSTATUS(statusdir1));
+                char writea[100];
+                sprintf(writea, "Child with pid %d, exited with status=%d\n", wdir1, WEXITSTATUS(statusdir1));
+                write(fl, writea, strlen(writea));
             }
             pid_t wdir2 = waitpid(piddir2, &statusdir2, 0);
             if (WIFEXITED(statusdir2))
             {
-                printf("Child with pid %d, exited with status=%d\n", wdir2, WEXITSTATUS(statusdir2));
+                char writea[100];
+                sprintf(writea, "Child with pid %d, exited with status=%d\n", wdir2, WEXITSTATUS(statusdir2));
+                write(fl, writea, strlen(writea));
             }
             break;
         default:
@@ -168,6 +186,7 @@ int main(int argc, char *argv[])
             break;
         }
     }
+    close(fp);
     return 0;
 }
 
@@ -182,7 +201,7 @@ void print_reg_file_info(char *filename)
         return;
     }
 
-    printf("Options: name(-n) , size(-d), hard link count(-h), time of last modification(-m), access rights(-a), create symbolic link(-l): ");
+    printf("\n\nOptions: \n-name(-n)\n-size(-d)\n-hard link count(-h)\n-time of last modification(-m)\n-access rights(-a)\n-create symbolic link(-l)\nYour options:");
     scanf("%s", options);
 
     for (int i = 0; i < strlen(options); i++)
@@ -247,7 +266,7 @@ void print_sym_link_info(char *filename)
         perror("lstat");
         return;
     }
-    printf("Options: name(-n), delete symblic link(-l) , size of symblic link(-d), size of target(-t), access rights(-a): ");
+    printf("\n\nOptions: \n-name(-n)\n-delete symblic link(-l)\n-size of symblic link(-d)\n-size of target(-t)\n-access rights(-a)\nYour options:");
     scanf("%s", options);
 
     for (int i = 0; i < strlen(options); i++)
@@ -329,7 +348,7 @@ void print_dir_info(char *dirname)
             total_size += st.st_size;
         }
     }
-    printf("Options: name(-n), size(-d), access rights(-a), number of C files(-c): ");
+    printf("\n\nOptions: \n-name(-n)\n-size(-d)\n-access rights(-a)\n-number of C files(-c)\nYour options:");
     scanf("%s", options);
     for (int i = 0; i < strlen(options); i++)
     {

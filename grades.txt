@@ -1,5 +1,1 @@
-grade is 1
-grade is 1
-grade is 1
-grade is 1
-grade is 1
+Grade for file p3.c is: 10
