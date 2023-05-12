@@ -7,7 +7,7 @@ then
     errors=$(echo "$output_gcc" | grep -c "error" )
     warnings=$(echo "$output_gcc" | grep -c "warning" )
 
-    echo "$errors$warnings"
+    echo "$errors/$warnings"
 else
     echo "OK"
 fi

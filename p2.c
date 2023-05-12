@@ -85,8 +85,8 @@ int main(int argc, char *argv[])
                 sprintf(writea, "Child with pid %d, exited with status=%d\n", wreg2, WEXITSTATUS(statusreg2));
                 write(fl, writea, strlen(writea));
                 close(pipefd[1]);
-                char buffer[1000];
-                int bytes_read = read(pipefd[0], buffer, 1000);
+                char buffer[100];
+                int bytes_read = read(pipefd[0], buffer, 100);
                 if (bytes_read == -1)
                 {
                     perror("read");
@@ -94,9 +94,12 @@ int main(int argc, char *argv[])
                 }
                 close(pipefd[0]);
                 buffer[bytes_read] = '\0';
-                int err = atoi(buffer);
-                int wrr = err % 10;
-                err = err / 10;
+                char copy[100];
+                strcpy(copy, buffer);
+                char *ptr = strtok(copy, "/");
+                int err = atoi(ptr);
+                ptr = strtok(NULL, "\0");
+                int wrr = atoi(ptr);
                 int grade;
                 if (err == 0 && wrr == 0)
                     grade = 10;

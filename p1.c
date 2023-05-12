@@ -10,9 +10,17 @@
 
 int main(int argc, char *argv[])
 {
-    char string[10]="ana";
+    char string[10] = "mere";
     printf("%d", strlen(string));
-    ceva 
-    ceva 
-    ceva
+    ceva;
+    ceva1;
+    ceva2;
+    ceva_ceva;
+    ceva3;
+    ceva5;
+    ceva6;
+    ceva7;
+    ceva8;
+    ceva9;
+    ceva10;
 }

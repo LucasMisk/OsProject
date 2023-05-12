@@ -1,1 +1,1 @@
-Grade for file p3.c is: 10
+Grade for file p1.c is: 1
